@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "world-radio",
+  "owner": {
+    "name": "silloi"
+  },
+  "metadata": {
+    "description": "A retro world radio for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "world-radio",
+      "description": "A retro car-stereo radio above the prompt: random stations from around the world, played with mpv",
+      "source": "./",
+      "category": "productivity",
+      "license": "MIT",
+      "homepage": "https://github.com/silloi/world-radio"
+    }
+  ]
+}

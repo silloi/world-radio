@@ -1,0 +1,9 @@
+{
+  "name": "world-radio",
+  "version": "0.1.0",
+  "description": "A retro car-stereo radio above the Claude Code prompt: random stations from around the world, played with mpv",
+  "author": { "name": "silloi" },
+  "homepage": "https://github.com/silloi/world-radio",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
