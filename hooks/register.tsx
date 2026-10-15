@@ -28,6 +28,8 @@ export const flag = (cc: string): string =>
     : '🌐'
 
 let stations: Station[] = []
+// What ▶▶ picks from: the world list, or one country's after `/radio jp`.
+let pool: Station[] = []
 let player: string | null = null
 let gen = 0
 let child: AsyncIterator<unknown> | null = null
@@ -54,9 +56,12 @@ async function findPlayer(api: $): Promise<string | null> {
   return null
 }
 
-async function loadStations(api: $): Promise<void> {
-  if (stations.length > 0) return
-  const res = await api.http.fetch(API, { headers: { 'User-Agent': 'world-radio/0.1' } })
+export function searchUrl(countrycode?: string): string {
+  return countrycode ? `${API}&countrycode=${encodeURIComponent(countrycode)}` : API
+}
+
+async function fetchStations(api: $, countrycode?: string): Promise<Station[]> {
+  const res = await api.http.fetch(searchUrl(countrycode), { headers: { 'User-Agent': 'world-radio/0.1' } })
   if (!res.ok) throw new Error(`radio-browser ${res.status}`)
   const list = JSON.parse(res.text) as {
     name?: string
@@ -64,7 +69,7 @@ async function loadStations(api: $): Promise<void> {
     url_resolved?: string
     geo_long?: number | null
   }[]
-  stations = list
+  return list
     .filter(s => s.url_resolved && s.name)
     .map(s => ({
       name: s.name!.trim(),
@@ -72,6 +77,11 @@ async function loadStations(api: $): Promise<void> {
       url: s.url_resolved!,
       ...(typeof s.geo_long === 'number' ? { lng: s.geo_long } : {}),
     }))
+}
+
+async function loadStations(api: $): Promise<void> {
+  if (stations.length === 0) stations = await fetchStations(api)
+  if (pool.length === 0) pool = stations
 }
 
 async function stopPlayer(api: $): Promise<void> {
@@ -147,7 +157,7 @@ async function playRandom(api: $, skips = 0): Promise<void> {
   // A station that failed to play is not worth going back to.
   const prev = await read(api, station)
   if (skips === 0 && prev) history = [...history, prev].slice(-50)
-  const s = stations[Math.floor(Math.random() * stations.length)]
+  const s = pool[Math.floor(Math.random() * pool.length)]
   if (s) await play(api, s, skips)
 }
 
@@ -321,9 +331,35 @@ export function faceplate(
 // Each station shows a channel number on the display, its place in the list.
 function channelOf(s: Station | null): number {
   if (!s) return 0
-  const i = stations.findIndex(one => one.url === s.url)
+  const i = pool.findIndex(one => one.url === s.url)
   return i < 0 ? 0 : i + 1
 }
+
+// `/radio jp`: tune that country's stations; ▶▶ stays in it until `/radio all`.
+async function tuneCountry(api: $, countrycode: string): Promise<void> {
+  try {
+    await setStatus(api, 'loading')
+    const list = await fetchStations(api, countrycode)
+    if (list.length === 0) {
+      api.ui.toast(`world-radio: no stations for ${countrycode}`)
+      await setStatus(api, 'stopped')
+      return
+    }
+    pool = list
+  } catch (err) {
+    api.ui.toast(`world-radio: could not load stations (${String(err)})`)
+    await setStatus(api, 'error')
+    return
+  }
+  await playRandom(api)
+}
+
+async function tuneWorld(api: $): Promise<void> {
+  pool = []
+  await playRandom(api)
+}
+
+const USAGE = 'Usage: /radio [next|back|play|stop|all|<country code, e.g. jp>]'
 
 async function radioCommand(api: $, args: string): Promise<string> {
   const word = args.trim().toLowerCase()
@@ -331,7 +367,13 @@ async function radioCommand(api: $, args: string): Promise<string> {
   else if (word === 'back' || word === 'prev') later(api, () => back(api))
   else if (word === 'stop') later(api, () => stop(api))
   else if (word === 'play') later(api, () => resume(api))
-  else return 'Usage: /radio [next|back|play|stop]'
+  else if (word === 'all' || word === 'world') later(api, () => tuneWorld(api))
+  else if (/^[a-z]{2}$/.test(word)) {
+    // ISO 3166 says GB; people say UK.
+    const cc = word === 'uk' ? 'GB' : word.toUpperCase()
+    later(api, () => tuneCountry(api, cc))
+    return `📻 ${flag(cc)} ${cc}`
+  } else return USAGE
   return `📻 ${word || 'next'}`
 }
 
@@ -342,8 +384,8 @@ export const register: Register = on => {
     await setStatus($, 'stopped')
     await $.command.register({
       name: 'radio',
-      description: 'World Radio: next, back, play or stop',
-      argumentHint: '[next|back|play|stop]',
+      description: 'World Radio: next, back, play, stop, or a country code (jp)',
+      argumentHint: '[next|back|play|stop|all|jp]',
     })
     // The display's local time moves on; redraw it twice a minute.
     $.clock.every(30_000, () => $.ui.invalidate('ui.render'))

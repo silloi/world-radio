@@ -36,6 +36,8 @@ Answer `y` to add the marketplace, then pick the user scope. A local session the
 | `/radio` or `/radio next` | Tune a random station |
 | `/radio back` | Back to the previous station |
 | `/radio play` / `/radio stop` | Play or stop |
+| `/radio jp` | Tune stations from one country (any ISO country code; `uk` works too). ▶▶ stays in that country |
+| `/radio all` | Back to stations from the whole world |
 
 ## Notes
 

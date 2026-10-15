@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { faceplate, flag, icyTitle, localTime, readout } from '../hooks/register'
+import { faceplate, flag, icyTitle, localTime, readout, searchUrl } from '../hooks/register'
 
 test('country codes become flag emoji', async () => {
   expect(flag('jp')).toBe('🇯🇵')
@@ -61,4 +61,9 @@ test('while a song is known the display alternates station and song, scrolling a
   expect(long).toContain('animateTransform')
   expect(faceplate(s, 'stopped', 7, '12:00', 'alt-J - Something Good')).not.toContain('♪')
   console.log('SVG-BEGIN' + long + 'SVG-END')
+})
+
+test('a country code narrows the station search', async () => {
+  expect(searchUrl()).not.toContain('countrycode')
+  expect(searchUrl('JP')).toMatch(/&countrycode=JP$/)
 })
